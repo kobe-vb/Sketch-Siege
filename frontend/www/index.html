@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🎮 Game Control (Mobile)</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    min-height: 100vh;
+    padding: 12px;
+}
+
+.container {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 15px 40px rgba(0,0,0,.25);
+}
+
+h1 {
+    text-align: center;
+    color: #667eea;
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+
+.section {
+    background: #f8f9fa;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+
+.section h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #333;
+}
+
+label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 6px;
+    display: block;
+}
+
+input, select {
+    width: 100%;
+    font-size: 16px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 12px;
+    border: none;
+    background: #667eea;
+    color: white;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+.btn-success { background: #28a745; }
+.btn-danger  { background: #dc3545; }
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quick-points {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.quick-points button {
+    flex: 1;
+    padding: 14px;
+    font-size: 15px;
+}
+
+.message {
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    display: none;
+}
+
+.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.drawing-name {
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    color: #856404;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>🎮 Game Control</h1>
+
+<!-- PLAYER -->
+<div class="section">
+<h2>👤 Player</h2>
+
+<label>Huidige player</label>
+<select id="playerSelect"></select>
+
+<label style="margin-top:10px">Nieuwe player</label>
+<input id="newPlayerName" placeholder="Naam..." />
+
+<div class="button-group">
+    <button onclick="addPlayer()">➕ Player toevoegen</button>
+    <button onclick="setPlayer()">✅ Player selecteren</button>
+</div>
+
+<div id="playerMessage" class="message"></div>
+</div>
+
+<!-- POINTS -->
+<div class="section">
+<h2>⭐ Punten</h2>
+
+<input id="pointsInput" type="number" value="10" />
+
+<div class="quick-points">
+    <button onclick="quickPoints(5)">+5</button>
+    <button onclick="quickPoints(10)">+10</button>
+    <button onclick="quickPoints(25)">+25</button>
+</div>
+
+<button onclick="addPoints()">🏆 Punten toekennen</button>
+
+<div id="pointsMessage" class="message"></div>
+</div>
+
+<!-- DRAWING -->
+<div class="section">
+<h2>🎨 Tekening</h2>
+
+<button onclick="getDrawingName()">👀 Toon tekening</button>
+<div id="drawingNameDisplay"></div>
+
+<div class="button-group" style="margin-top:12px">
+    <button class="btn-success" onclick="setDrawing(true)">✔ GOED</button>
+    <button class="btn-danger" onclick="setDrawing(false)">✖ FOUT</button>
+</div>
+
+<div id="drawingMessage" class="message"></div>
+</div>
+
+</div>
+
+<script>
+const STORAGE_KEY = 'players_mobile';
+
+let players = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+const playerSelect = document.getElementById('playerSelect');
+const drawingDisplay = document.getElementById('drawingNameDisplay');
+
+updatePlayerSelect();
+
+/* helpers */
+function showMessage(id, msg, ok=true) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = `message ${ok ? 'success' : 'error'}`;
+    el.style.display = 'block';
+    if (navigator.vibrate) navigator.vibrate(40);
+    setTimeout(() => el.style.display = 'none', 2500);
+}
+
+async function api(path, options={}) {
+    const res = await fetch(path, options);
+    return res.json();
+}
+
+/* players */
+function updatePlayerSelect() {
+    playerSelect.innerHTML = '<option value="">-- kies player --</option>';
+    players.forEach(p => {
+        const o = document.createElement('option');
+        o.value = o.textContent = p;
+        playerSelect.appendChild(o);
+    });
+}
+
+function addPlayer() {
+    const name = newPlayerName.value.trim();
+    if (!name || players.includes(name)) {
+        showMessage('playerMessage', 'Ongeldige naam', false);
+        return;
+    }
+    players.push(name);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+    updatePlayerSelect();
+    playerSelect.value = name;
+    newPlayerName.value = '';
+    showMessage('playerMessage', `Player ${name} toegevoegd`);
+}
+
+async function setPlayer() {
+    if (!playerSelect.value) return;
+    const data = await api(`/player/${encodeURIComponent(playerSelect.value)}`, { method:'POST' });
+    showMessage('playerMessage', data.success ? 'Player actief' : data.message, data.success);
+}
+
+/* points */
+function quickPoints(v) {
+    pointsInput.value = v;
+    addPoints();
+}
+
+async function addPoints() {
+    const pts = Number(pointsInput.value);
+    if (!Number.isInteger(pts) || pts <= 0) {
+        showMessage('pointsMessage', 'Ongeldige punten', false);
+        return;
+    }
+    const data = await api(`/points/${pts}`, { method:'POST' });
+    showMessage('pointsMessage', data.success ? `${pts} punten toegevoegd` : data.message, data.success);
+}
+
+/* drawing */
+async function getDrawingName() {
+    const data = await api('/drawing/name');
+    if (!data.success) return;
+    drawingDisplay.className = 'drawing-name';
+    drawingDisplay.textContent = data.name;
+}
+
+async function setDrawing(ok) {
+    drawingDisplay.textContent = '';
+    drawingDisplay.className = '';
+    const data = await api(`/drawing/${ok}`, { method:'POST' });
+    showMessage('drawingMessage', ok ? 'Goedgekeurd' : 'Afgekeurd', data.success);
+}
+</script>
+</body>
+</html>
